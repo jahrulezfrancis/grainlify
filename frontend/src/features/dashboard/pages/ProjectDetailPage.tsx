@@ -167,18 +167,31 @@ export function ProjectDetailPage({ onBack, onIssueClick, projectId: propProject
       const login = (it as any).author_login;
       if (!login || uniq.has(login)) continue;
       uniq.set(login, { name: login, avatar: `https://github.com/${login}.png?size=80` });
-      if (uniq.size >= 6) break;
+      if (uniq.size >= 5) break; // Get top 5
     }
     return Array.from(uniq.values());
   }, [issues, prs]);
-
+  
   const recentPRs = useMemo(() => {
-    return prs.slice(0, 3).map((p) => ({
+    return prs.map((p) => ({
       number: String(p.number),
       title: p.title,
       date: (p.updated_at || p.last_seen_at || '').slice(0, 10),
     }));
   }, [prs]);
+  
+  const [showAllIssues, setShowAllIssues] = useState(false);
+  const [showAllActivity, setShowAllActivity] = useState(false);
+  
+  const displayedIssues = useMemo(() => {
+    if (showAllIssues) return filteredIssues;
+    return filteredIssues.slice(0, 5);
+  }, [filteredIssues, showAllIssues]);
+  
+  const displayedActivity = useMemo(() => {
+    if (showAllActivity) return recentPRs;
+    return recentPRs.slice(0, 5);
+  }, [recentPRs, showAllActivity]);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -417,23 +430,32 @@ export function ProjectDetailPage({ onBack, onIssueClick, projectId: propProject
           <div className="flex items-center gap-2 mb-3">
             {isLoading ? (
               <div className="flex -space-x-2">
-                {[1, 2, 3].map((i) => (
-                  <SkeletonLoader key={i} variant="circle" className="w-8 h-8 border-2 border-[#c9983a]/30" />
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <SkeletonLoader key={i} variant="circle" className="w-10 h-10 border-2 border-[#c9983a]/30" />
                 ))}
               </div>
             ) : (
               <div className="flex -space-x-2">
-                {contributors.slice(0, 3).map((contributor) => (
+                {contributors.slice(0, 5).map((contributor) => (
                   <img 
                     key={contributor.name}
                     src={contributor.avatar} 
                     alt={contributor.name}
-                    className="w-8 h-8 rounded-full border-2 border-[#c9983a]/30"
+                    className="w-10 h-10 rounded-full border-2 border-[#c9983a]/30 hover:z-10 transition-transform hover:scale-110"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = 'https://github.com/github.png?size=80';
                     }}
                   />
                 ))}
+                {project?.contributors_count && project.contributors_count > 5 && (
+                  <div className={`w-10 h-10 rounded-full border-2 border-[#c9983a]/30 flex items-center justify-center text-[12px] font-bold transition-colors ${
+                    theme === 'dark' 
+                      ? 'bg-white/[0.12] text-[#f5f5f5]' 
+                      : 'bg-white/[0.15] text-[#2d2820]'
+                  }`}>
+                    +{project.contributors_count - 5}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -443,8 +465,8 @@ export function ProjectDetailPage({ onBack, onIssueClick, projectId: propProject
             <p className={`text-[12px] transition-colors ${
               theme === 'dark' ? 'text-[#d4d4d4]' : 'text-[#7a6b5a]'
             }`}>
-              {contributors.length
-                ? `${contributors.slice(0, 2).map(c => c.name).join(', ')}${project?.contributors_count && project.contributors_count > 2 ? ` and ${project.contributors_count - 2} others` : ''}`
+              {project?.contributors_count
+                ? `${project.contributors_count} ${project.contributors_count === 1 ? 'contributor' : 'contributors'}`
                 : 'No contributors yet'}
             </p>
           )}
@@ -526,7 +548,7 @@ export function ProjectDetailPage({ onBack, onIssueClick, projectId: propProject
         {/* Overview */}
         <div className={`backdrop-blur-[40px] rounded-[24px] border p-8 transition-colors ${
           theme === 'dark'
-            ? 'bg-white/[0.12] border-white/20'
+            ? 'bg-white/[0.08] border-white/10'
             : 'bg-white/[0.12] border-white/20'
         }`}>
           <div className="flex items-center justify-between mb-6">
@@ -685,7 +707,7 @@ export function ProjectDetailPage({ onBack, onIssueClick, projectId: propProject
           <div className="space-y-4">
             {isLoading ? (
               <>
-                {[1, 2, 3].map((i) => (
+                {[1, 2, 3, 4, 5].map((i) => (
                   <div
                     key={i}
                     className={`p-6 rounded-[16px] backdrop-blur-[25px] border border-white/25 ${
@@ -706,7 +728,7 @@ export function ProjectDetailPage({ onBack, onIssueClick, projectId: propProject
               </>
             ) : (
               <>
-                {filteredIssues.map((issue) => (
+                {displayedIssues.map((issue) => (
               <div
                 key={issue.github_issue_id}
                 className={`p-6 rounded-[16px] backdrop-blur-[25px] border border-white/25 hover:bg-white/[0.15] transition-all cursor-pointer ${
@@ -762,6 +784,18 @@ export function ProjectDetailPage({ onBack, onIssueClick, projectId: propProject
                 </div>
               </div>
                 ))}
+                {!showAllIssues && filteredIssues.length > 5 && (
+                  <button
+                    onClick={() => setShowAllIssues(true)}
+                    className={`w-full py-3 rounded-[12px] border transition-all ${
+                      theme === 'dark'
+                        ? 'bg-white/[0.08] border-white/20 text-[#f5f5f5] hover:bg-white/[0.12]'
+                        : 'bg-white/[0.12] border-white/25 text-[#2d2820] hover:bg-white/[0.15]'
+                    }`}
+                  >
+                    <span className="text-[14px] font-semibold">View All ({filteredIssues.length} issues)</span>
+                  </button>
+                )}
               </>
             )}
             {!isLoading && filteredIssues.length === 0 && (
@@ -786,7 +820,7 @@ export function ProjectDetailPage({ onBack, onIssueClick, projectId: propProject
           <div className="space-y-3">
             {isLoading ? (
               <>
-                {[1, 2, 3].map((i) => (
+                {[1, 2, 3, 4, 5].map((i) => (
                   <div
                     key={i}
                     className={`flex items-center justify-between p-4 rounded-[12px] backdrop-blur-[20px] border border-white/20 ${
@@ -803,7 +837,7 @@ export function ProjectDetailPage({ onBack, onIssueClick, projectId: propProject
               </>
             ) : (
               <>
-                {recentPRs.map((activity, idx) => (
+                {displayedActivity.map((activity, idx) => (
               <div
                 key={idx}
                 className={`flex items-center justify-between p-4 rounded-[12px] backdrop-blur-[20px] border border-white/20 hover:bg-white/[0.15] transition-all ${
@@ -823,6 +857,18 @@ export function ProjectDetailPage({ onBack, onIssueClick, projectId: propProject
                 }`}>{activity.date}</span>
               </div>
                 ))}
+                {!showAllActivity && recentPRs.length > 5 && (
+                  <button
+                    onClick={() => setShowAllActivity(true)}
+                    className={`w-full py-3 rounded-[12px] border transition-all ${
+                      theme === 'dark'
+                        ? 'bg-white/[0.08] border-white/20 text-[#f5f5f5] hover:bg-white/[0.12]'
+                        : 'bg-white/[0.12] border-white/25 text-[#2d2820] hover:bg-white/[0.15]'
+                    }`}
+                  >
+                    <span className="text-[14px] font-semibold">View All ({recentPRs.length} activities)</span>
+                  </button>
+                )}
               </>
             )}
             {!isLoading && recentPRs.length === 0 && (
