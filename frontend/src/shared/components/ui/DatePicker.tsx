@@ -63,7 +63,7 @@ export function DatePicker({
 
   // Popover content styling for theme - using theme colors
   const popoverContentClasses = theme === 'dark'
-    ? 'bg-[#1a1512] border-[#a67c2e]/30 backdrop-blur-[30px] text-[#f5f5f5]'
+    ? 'bg-[#1a1512] border-[#b8a898]/30 backdrop-blur-[30px] text-[#f5f5f5]'
     : 'bg-white/[0.4] border-[#c9983a]/20 backdrop-blur-[30px] text-[#2d2820]';
 
   // Calendar styling for theme - using theme colors consistently
@@ -76,7 +76,7 @@ export function DatePicker({
     nav_button: cn(
       "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 rounded-md border transition-colors",
       theme === 'dark'
-        ? 'border-[#a67c2e]/30 text-[#f5f5f5] hover:bg-[#a67c2e]/20 hover:border-[#a67c2e]/50'
+        ? 'border-[#b8a898]/40 text-[#f5f5f5] hover:bg-[#b8a898]/20 hover:border-[#c9983a]/50'
         : 'border-[#c9983a]/20 text-[#2d2820] hover:bg-[#c9983a]/10 hover:border-[#c9983a]/30'
     ),
     nav_button_previous: "absolute left-1",
@@ -95,7 +95,7 @@ export function DatePicker({
     day: cn(
       "h-8 w-8 p-0 font-normal rounded-md transition-colors",
       theme === 'dark'
-        ? 'text-[#f5f5f5] hover:bg-[#a67c2e]/20 hover:text-[#f5f5f5]'
+        ? 'text-[#f5f5f5] hover:bg-[#b8a898]/15 hover:text-[#f5f5f5]'
         : 'text-[#2d2820] hover:bg-[#c9983a]/15 hover:text-[#2d2820]',
       "aria-selected:opacity-100"
     ),
@@ -105,7 +105,7 @@ export function DatePicker({
     ),
     day_today: cn(
       theme === 'dark' 
-        ? 'bg-[#a67c2e]/20 text-[#f5f5f5] border border-[#a67c2e]/40' 
+        ? 'bg-[#b8a898]/15 text-[#f5f5f5] border border-[#c9983a]/40' 
         : 'bg-[#c9983a]/15 text-[#2d2820] border border-[#c9983a]/30'
     ),
     day_outside: cn(
