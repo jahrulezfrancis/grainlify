@@ -89,6 +89,11 @@
 #![no_std]
 mod events;
 mod test_bounty_escrow;
+pub mod security {
+    pub mod reentrancy_guard;
+}
+
+use security::reentrancy_guard::{ReentrancyGuard, ReentrancyGuardRAII};
 
 use events::{
     emit_batch_funds_locked, emit_batch_funds_released, emit_bounty_initialized, emit_funds_locked,
@@ -459,6 +464,7 @@ pub enum Error {
     InsufficientFunds = 16,
     /// Returned when refund is attempted without admin approval
     RefundNotApproved = 17,
+    ReentrantCall = 18,
 }
 
 // ============================================================================
@@ -858,35 +864,25 @@ impl BountyEscrowContract {
         // Verify depositor authorization
         depositor.require_auth();
 
-        // Ensure contract is initialized
-        if env.storage().instance().has(&DataKey::ReentrancyGuard) {
-            panic!("Reentrancy detected");
-        }
-        env.storage()
-            .instance()
-            .set(&DataKey::ReentrancyGuard, &true);
+        let _guard = ReentrancyGuardRAII::new(&env).map_err(|_| Error::ReentrantCall)?;
 
         if amount <= 0 {
             monitoring::track_operation(&env, symbol_short!("lock"), caller, false);
-            env.storage().instance().remove(&DataKey::ReentrancyGuard);
             return Err(Error::InvalidAmount);
         }
 
         if deadline <= env.ledger().timestamp() {
             monitoring::track_operation(&env, symbol_short!("lock"), caller, false);
-            env.storage().instance().remove(&DataKey::ReentrancyGuard);
             return Err(Error::InvalidDeadline);
         }
         if !env.storage().instance().has(&DataKey::Admin) {
             monitoring::track_operation(&env, symbol_short!("lock"), caller, false);
-            env.storage().instance().remove(&DataKey::ReentrancyGuard);
             return Err(Error::NotInitialized);
         }
 
         // Prevent duplicate bounty IDs
         if env.storage().persistent().has(&DataKey::Escrow(bounty_id)) {
             monitoring::track_operation(&env, symbol_short!("lock"), caller, false);
-            env.storage().instance().remove(&DataKey::ReentrancyGuard);
             return Err(Error::BountyExists);
         }
 
@@ -946,8 +942,6 @@ impl BountyEscrowContract {
                 deadline,
             },
         );
-
-        env.storage().instance().remove(&DataKey::ReentrancyGuard);
 
         // Track successful operation
         monitoring::track_operation(&env, symbol_short!("lock"), caller, true);
@@ -1014,15 +1008,8 @@ impl BountyEscrowContract {
     pub fn release_funds(env: Env, bounty_id: u64, contributor: Address) -> Result<(), Error> {
         let start = env.ledger().timestamp();
 
-        // Ensure contract is initialized
-        if env.storage().instance().has(&DataKey::ReentrancyGuard) {
-            panic!("Reentrancy detected");
-        }
-        env.storage()
-            .instance()
-            .set(&DataKey::ReentrancyGuard, &true);
+        let _guard = ReentrancyGuardRAII::new(&env).map_err(|_| Error::ReentrantCall)?;
         if !env.storage().instance().has(&DataKey::Admin) {
-            env.storage().instance().remove(&DataKey::ReentrancyGuard);
             return Err(Error::NotInitialized);
         }
 
@@ -1037,7 +1024,6 @@ impl BountyEscrowContract {
         // Verify bounty exists
         if !env.storage().persistent().has(&DataKey::Escrow(bounty_id)) {
             monitoring::track_operation(&env, symbol_short!("release"), admin.clone(), false);
-            env.storage().instance().remove(&DataKey::ReentrancyGuard);
             return Err(Error::BountyNotFound);
         }
 
@@ -1050,7 +1036,6 @@ impl BountyEscrowContract {
 
         if escrow.status != EscrowStatus::Locked {
             monitoring::track_operation(&env, symbol_short!("release"), admin.clone(), false);
-            env.storage().instance().remove(&DataKey::ReentrancyGuard);
             return Err(Error::FundsNotLocked);
         }
 
@@ -1110,8 +1095,6 @@ impl BountyEscrowContract {
                 timestamp: env.ledger().timestamp(),
             },
         );
-
-        env.storage().instance().remove(&DataKey::ReentrancyGuard);
 
         // Track successful operation
         monitoring::track_operation(&env, symbol_short!("release"), admin, true);
@@ -1186,10 +1169,11 @@ impl BountyEscrowContract {
     ) -> Result<(), Error> {
         let start = env.ledger().timestamp();
 
+        let _guard = ReentrancyGuardRAII::new(&env).map_err(|_| Error::ReentrantCall)?;
+
         if !env.storage().persistent().has(&DataKey::Escrow(bounty_id)) {
             let caller = env.current_contract_address();
             monitoring::track_operation(&env, symbol_short!("refund"), caller, false);
-            env.storage().instance().remove(&DataKey::ReentrancyGuard);
             return Err(Error::BountyNotFound);
         }
 
@@ -1321,8 +1305,6 @@ impl BountyEscrowContract {
                 remaining_amount: escrow.remaining_amount,
             },
         );
-
-        env.storage().instance().remove(&DataKey::ReentrancyGuard);
 
         // Track successful operation
         monitoring::track_operation(&env, symbol_short!("refund"), caller, true);
@@ -1497,6 +1479,7 @@ impl BountyEscrowContract {
     /// # Note
     /// This operation is atomic - if any item fails, the entire transaction reverts.
     pub fn batch_lock_funds(env: Env, items: Vec<LockFundsItem>) -> Result<u32, Error> {
+        let _guard = ReentrancyGuardRAII::new(&env).map_err(|_| Error::ReentrantCall)?;
         // Validate batch size
         let batch_size = items.len() as u32;
         if batch_size == 0 {
@@ -1626,6 +1609,7 @@ impl BountyEscrowContract {
     /// # Note
     /// This operation is atomic - if any item fails, the entire transaction reverts.
     pub fn batch_release_funds(env: Env, items: Vec<ReleaseFundsItem>) -> Result<u32, Error> {
+        let _guard = ReentrancyGuardRAII::new(&env).map_err(|_| Error::ReentrantCall)?;
         // Validate batch size
         let batch_size = items.len() as u32;
         if batch_size == 0 {
@@ -1734,3 +1718,5 @@ impl BountyEscrowContract {
 
 #[cfg(test)]
 mod test;
+#[cfg(test)]
+mod reentrancy_test;

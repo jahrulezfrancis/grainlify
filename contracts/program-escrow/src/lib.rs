@@ -139,6 +139,14 @@
 //! 6. **Token Approval**: Ensure contract has token allowance before locking funds
 
 #![no_std]
+pub mod security {
+    pub mod reentrancy_guard;
+}
+#[cfg(test)]
+mod reentrancy_test;
+
+use security::reentrancy_guard::{ReentrancyGuard, ReentrancyGuardRAII};
+
 use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short, token, vec, Address, Env, String, Symbol,
     Vec,
@@ -972,6 +980,7 @@ impl ProgramEscrowContract {
     /// -  Not verifying contract received the tokens
 
     pub fn lock_program_funds(env: Env, program_id: String, amount: i128) -> ProgramData {
+        let _guard = ReentrancyGuardRAII::new(&env).expect("Reentrancy detected");
         // Apply rate limiting
         anti_abuse::check_rate_limit(&env, env.current_contract_address());
 
@@ -1142,6 +1151,7 @@ impl ProgramEscrowContract {
         recipients: Vec<Address>,
         amounts: Vec<i128>,
     ) -> ProgramData {
+        let _guard = ReentrancyGuardRAII::new(&env).expect("Reentrancy detected");
         // Apply rate limiting to the contract itself or the program
         // We can't easily get the caller here without getting program data first
         
@@ -1322,6 +1332,7 @@ impl ProgramEscrowContract {
         recipient: Address,
         amount: i128,
     ) -> ProgramData {
+        let _guard = ReentrancyGuardRAII::new(&env).expect("Reentrancy detected");
         // Get program data
         let program_key = DataKey::Program(program_id.clone());
         let program_data: ProgramData = env
@@ -1466,6 +1477,7 @@ impl ProgramEscrowContract {
         release_timestamp: u64,
         recipient: Address,
     ) -> ProgramData {
+        let _guard = ReentrancyGuardRAII::new(&env).expect("Reentrancy detected");
         let start = env.ledger().timestamp();
 
         // Get program data
@@ -1586,6 +1598,7 @@ impl ProgramEscrowContract {
         program_id: String,
         schedule_id: u64,
     ) {
+        let _guard = ReentrancyGuardRAII::new(&env).expect("Reentrancy detected");
         let start = env.ledger().timestamp();
         let caller = env.current_contract_address();
 
@@ -1722,6 +1735,7 @@ impl ProgramEscrowContract {
         program_id: String,
         schedule_id: u64,
     ) {
+        let _guard = ReentrancyGuardRAII::new(&env).expect("Reentrancy detected");
         let start = env.ledger().timestamp();
 
         // Get program data
